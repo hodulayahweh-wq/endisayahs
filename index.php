@@ -1,1 +1,4 @@
-<?php include 'nvi_test.php'; ?>
+<?php
+// Ana sorgu dosyasına yönlendirir
+include 'nvi_test.php';
+?>
